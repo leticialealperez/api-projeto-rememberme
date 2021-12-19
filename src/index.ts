@@ -4,25 +4,24 @@ import cors from 'cors';
 
 const app = express();
 
+const host = process.env.HOST
 const port = process.env.PORT
 
 app.use(express.json());
 app.use(cors());
 
 app.listen(port, ()=>{
-    console.log(`>>> Started server on PORT ${port}`);
+    console.log(`>>> Started server on ${host}:${port}`);
 })
 
 class User{
     public idUser: number;
     public userName: string;
-    public password: string;
     public messages: Array<Messages> = [];
 
-    constructor(idUser: number, userName: string, password: string){
+    constructor(idUser: number, userName: string){
         this.idUser = idUser;
         this.userName = userName;
-        this.password = password;
     }
 }
 
@@ -44,20 +43,21 @@ let idMessage: number = 0;
 
 
 //CREATE USER...
-app.post("/user", (req: Request, res: Response, next: NextFunction) =>{
-    let { userName, password } = req.body;
+app.post("/user", (req: Request, res: Response) =>{
+    let { userName } = req.body;
     
     let userFound: User | undefined = users.find(
         (user) => user.userName == userName
     );
 
     if(userFound){
-        res.status(400).send("ERRO: usuário já cadastrado!");
+        res.status(400).send("Usuário já cadastrado!");
     
     }else {
-        const userCreate: User = new User(idUser, userName, password);
-        users.push(userCreate);
         idUser++;
+        const userCreate: User = new User(idUser, userName);
+        users.push(userCreate);
+        
 
         res.status(201).json(userCreate);  
     }
@@ -78,7 +78,7 @@ app.get("/user", (req: Request, res: Response) =>{
 
 
 //READ USER...
-app.get("/user/:idUser", (req: Request, res: Response, next: NextFunction) =>{
+app.get("/user/:idUser", (req: Request, res: Response) =>{
     const idFound: number = Number(req.params.idUser);
 
     let userFound: User | undefined = users.find(
@@ -87,92 +87,60 @@ app.get("/user/:idUser", (req: Request, res: Response, next: NextFunction) =>{
 
     if(userFound){
         
-        res.send(userFound);
+        res.status(200).json(userFound);
     }else {
 
-        res.send("ERRO! Usuário não encontrado!");
+        res.status(404).send("Usuário não encontrado!");
     }
     
-})
-
-//UPDATE USER...
-app.put("/user/:idUser", (req: Request, res: Response, next: NextFunction) =>{
-    const name = String(req.body.name);
-    const password = String(req.body.password);
-    const idFound = Number(req.params.idUser);
-
-    let indexFound = users.findIndex((user) => user.idUser == idFound);
-
-    if(indexFound > -1){
-        if(name !== "undefined") users[indexFound].userName = name;
-        if(password !== "undefined") users[indexFound].password = password;
-    
-        const { messages, ...userFoundFilter } = users[indexFound];
-        res.status(200).send(userFoundFilter);
-    
-    }else{
-        res.status(400).send("Erro: Usuário não encontrado!");
-    }
-})
-
-
-//DELETE USER...
-app.delete("/user/:idUser", (req: Request, res: Response, next: NextFunction) =>{
-    const idFound = Number(req.params.idUser);
-
-    let indexFound = users.findIndex((user) => user.idUser == idFound);
-
-    if(indexFound > -1){
-        res.status(200).send(users.splice(indexFound, 1));
-    
-    }else{
-        res.status(400).send("Erro: Usuário não encontrado!");
-    }
 })
 
 //CREATE MESSAGE...
-app.post("/user/:idUser/messages", (req: Request, res: Response) =>{
-    let idFound = Number(req.params.idUser);
-    let title = String(req.body.title);
-    let description = String(req.body.description);
+app.post("/user/:userName/messages", (req: Request, res: Response) =>{
+    let userName = req.params.userName;
+    let title = req.body.title;
+    let description = req.body.description;
     
-    let indexFound = users.findIndex((user) => user.idUser == idFound);
+    let indexFound = users.findIndex((user) => user.userName == userName);
 
     if(indexFound > -1){
+        if(users[indexFound].messages){
+            idMessage = users[indexFound].messages.length + 1; 
+        }else{
+            idMessage = 1;
+        }
         const messageCreate: Messages = new Messages (idMessage, title, description);
         users[indexFound].messages.push(messageCreate);
-        idMessage++;
-
         res.status(201).json(messageCreate);
     
     }else{
-        res.status(400).send("Erro: Usuário informado não existe!");
+        res.status(404).send("Usuário informado não existe!");
     }
              
 })
 
 
-//READ ALL MESSAGES FOR ID USER...
-app.get("/user/:idUser/messages", (req: Request, res: Response, next: NextFunction) =>{
-    let idUserFound = Number(req.params.idUser);
+//READ ALL MESSAGES FOR USER NAME...
+app.get("/user/:userName/messages", (req: Request, res: Response) =>{
+    let userFound = req.params.userName;
     
-    let indexUserFound = users.findIndex((user) => user.idUser == idUserFound);
+    let indexUserFound = users.findIndex((user) => user.userName == userFound);
     
     if(indexUserFound > -1) {
         res.status(201).send(users[indexUserFound].messages);
         
     }else{
-        res.status(400).send("ERRO: Usuário não encontrado!");
+        res.status(404).send("Usuário não encontrado!");
     } 
 })
 
 //READ FOR ID MESSAGE...
-app.get("/user/:idUser/messages/:idMessage", (req: Request, res: Response, next: NextFunction) =>{
+app.get("/user/:userName/messages/:idMessage", (req: Request, res: Response) =>{
     const idMessageFound: number = Number(req.params.idMessage);
-    const idUserFound = Number(req.params.idUser);
+    const userName = req.params.userName;
 
     let userFound = users.find(
-        (user) => user.idUser == idUserFound
+        (user) => user.userName == userName
     );
     
     if(userFound){
@@ -181,26 +149,26 @@ app.get("/user/:idUser/messages/:idMessage", (req: Request, res: Response, next:
         );
 
         if(messageFound){
-            res.status(201).send(messageFound)
+            res.status(201).json(messageFound);
         
         }else{
-            res.status(400).send("ERRO: Mensagem não encontrada!");
+            res.status(404).send("Mensagem não encontrada!");
         }
     }else{
-        res.status(400).send("ERRO: Usuário não encontrado!");
+        res.status(404).send("Usuário não encontrado!");
     }
       
 })
 
 //UPDATE MESSAGE FOR EACH USER...
-app.put("/user/:idUser/messages/:idMessage", (req: Request, res: Response, next: NextFunction) =>{
+app.put("/user/:userName/messages/:idMessage", (req: Request, res: Response) =>{
     const idMessageFound: number = Number(req.params.idMessage);
-    const idUserFound = Number(req.params.idUser);
+    const userName = req.params.userName;
     
     const title = String(req.body.title);
     const description = String(req.body.description);
     
-    let indexUserFound = users.findIndex((user) => user.idUser == idUserFound);
+    let indexUserFound = users.findIndex((user) => user.userName == userName);
     
     if(indexUserFound > -1){
         let indexMessageFound = users[indexUserFound].messages.findIndex((message) => message.idMessages == idMessageFound);
@@ -210,37 +178,37 @@ app.put("/user/:idUser/messages/:idMessage", (req: Request, res: Response, next:
             if(title !== "undefined") users[indexUserFound].messages[indexMessageFound].title = title;
             if(description !== "undefined") users[indexUserFound].messages[indexMessageFound].description = description;
 
-            res.status(200).send(users[indexUserFound].messages[indexMessageFound]);
+            res.status(200).json(users[indexUserFound].messages[indexMessageFound]);
         
         }else{
-            res.status(400).send("Erro: Mensagem não encontrada!");
+            res.status(404).send("Mensagem não encontrada!");
         }
     
     }else{
-        res.status(400).send("Erro: Usuário não encontrado!");
+        res.status(404).send("Usuário não encontrado!");
     }
    
 })
 
 //DELETE MESSAGE FOR EACH USER...
-app.delete("/user/:idUser/messages/:idMessage", (req: Request, res: Response, next: NextFunction) =>{
+app.delete("/user/:userName/messages/:idMessage", (req: Request, res: Response) =>{
     const idMessageFound: number = Number(req.params.idMessage);
-    const idUserFound = Number(req.params.idUser);
+    const userName = req.params.userName;
 
-    let indexUserFound = users.findIndex((user) => user.idUser == idUserFound);
+    let indexUserFound = users.findIndex((user) => user.userName == userName);
 
     if(indexUserFound > -1){
         let indexMessageFound = users[indexUserFound].messages.findIndex((message) => message.idMessages == idMessageFound);
         
         if(indexMessageFound > -1){
-            res.status(200).send(users[indexUserFound].messages.splice(indexMessageFound, 1));
+            res.status(200).json(users[indexUserFound].messages.splice(indexMessageFound, 1));
         
         }else{
-            res.status(400).send("Erro: Mensagem não encontrada!");
+            res.status(404).send("Mensagem não encontrada!");
         }
     
     }else{
-        res.status(400).send("Erro: Usuário não encontrado!");
+        res.status(404).send("Usuário não encontrado!");
     }
     
 })
