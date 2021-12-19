@@ -95,6 +95,20 @@ app.get("/user/:idUser", (req: Request, res: Response) =>{
     
 })
 
+//DELETE USER...
+app.delete("/user/:idUser", (req: Request, res: Response) =>{
+    const idFound = Number(req.params.idUser);
+
+    let indexFound = users.findIndex((user) => user.idUser == idFound);
+
+    if(indexFound > -1){
+        res.status(200).send(users.splice(indexFound, 1));
+    
+    }else{
+        res.status(400).send("Usuário não encontrado!");
+    }
+})
+
 //CREATE MESSAGE...
 app.post("/user/:userName/messages", (req: Request, res: Response) =>{
     let userName = req.params.userName;
